@@ -49,7 +49,7 @@ class parseEmail extends Command
     public function handle()
     {
         $this->mailbox = new Mailbox(
-            '{mail.maximum.nl:993/imap/ssl}INBOX', // IMAP server and mailbox folder
+            '{'. env('EMAIL_HOSTNAME'). ':993/imap/ssl}INBOX', // IMAP server and mailbox folder
             env('EMAIL_USERNAME'), // Username for the before configured mailbox
             env('EMAIL_PASSWORD'), // Password for the before configured username
             __DIR__, // Directory, where attachments will be saved (optional)
