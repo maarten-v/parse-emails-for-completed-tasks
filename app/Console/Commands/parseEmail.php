@@ -62,8 +62,7 @@ class parseEmail extends Command
         try {
             // Get all emails (messages)
             // PHP.net imap_search criteria: http://php.net/manual/en/function.imap-search.php
-//            $mailsIds = $this->mailbox->searchMailbox('FROM mail.asana.com');
-            $mailsIds = $this->mailbox->searchMailbox('FROM maximum.nl');
+            $mailsIds = $this->mailbox->searchMailbox('FROM mail.asana.com');
         } catch (ConnectionException $ex) {
             echo "IMAP connection failed: " . $ex;
             die();
