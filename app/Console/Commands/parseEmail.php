@@ -12,6 +12,7 @@ use PhpImap\Mailbox;
 
 class parseEmail extends Command
 {
+    const COMPLETEDEMAILSFOLDER = 'Completed-asana-tasks';
     /**
      * The name and signature of the console command.
      *
@@ -20,6 +21,7 @@ class parseEmail extends Command
     protected $signature = 'parse-email';
 
     private Mailbox $mailbox;
+    private Mailbox $rootMailbox;
 
     private Client $client;
 
@@ -48,8 +50,9 @@ class parseEmail extends Command
      */
     public function handle()
     {
+        $mailserver = '{' . env('EMAIL_HOSTNAME') . ':993/imap/ssl}';
         $this->mailbox = new Mailbox(
-            '{'. env('EMAIL_HOSTNAME'). ':993/imap/ssl}INBOX', // IMAP server and mailbox folder
+            $mailserver.'INBOX', // IMAP server and mailbox folder
             env('EMAIL_USERNAME'), // Username for the before configured mailbox
             env('EMAIL_PASSWORD'), // Password for the before configured username
             __DIR__, // Directory, where attachments will be saved (optional)
@@ -59,15 +62,32 @@ class parseEmail extends Command
         try {
             // Get all emails (messages)
             // PHP.net imap_search criteria: http://php.net/manual/en/function.imap-search.php
-            $mailsIds = $this->mailbox->searchMailbox('FROM mail.asana.com');
+//            $mailsIds = $this->mailbox->searchMailbox('FROM mail.asana.com');
+            $mailsIds = $this->mailbox->searchMailbox('FROM maximum.nl');
         } catch (ConnectionException $ex) {
             echo "IMAP connection failed: " . $ex;
             die();
         }
 
+        $this->rootMailbox = new Mailbox(
+            '{' . env('EMAIL_HOSTNAME') . ':993/imap/ssl}', // IMAP server and mailbox folder
+            env('EMAIL_USERNAME'), // Username for the before configured mailbox
+            env('EMAIL_PASSWORD'), // Password for the before configured username
+            __DIR__, // Directory, where attachments will be saved (optional)
+            'UTF-8' // Server encoding (optional)
+        );
+
+        $mailboxes = ($this->rootMailbox->getListingFolders());
+
+        if (in_array($mailserver. self::COMPLETEDEMAILSFOLDER, $mailboxes, true ) === false ) {
+            $this->info('Creating mailbox for parsed emails');
+            $this->info('');
+            $this->rootMailbox->createMailbox(self::COMPLETEDEMAILSFOLDER);
+        }
+
         // If $mailsIds is empty, no emails could be found
         if (!$mailsIds) {
-            die('Mailbox is empty');
+            die('No emails from Asana found in Inbox');
         }
 
         $this->mailbox->setAttachmentsIgnore(true);
@@ -88,7 +108,7 @@ class parseEmail extends Command
         $this->info('Subject: ' . $this->mailbox->decodeMimeStr($email->headers->subject));
         $mailText = $email->textHtml;
         if (preg_match('/taskId\': \'(?<digit>\d+)/', $mailText, $regexResults) === 0) {
-            $this->info('no task id found');
+            $this->info('No task id found');
             return;
         }
         $taskId = $regexResults['digit'];
@@ -108,18 +128,22 @@ class parseEmail extends Command
             if ($e->getCode() == 403) {
                 $this->info('No access to this task, probably old and removed');
             }
-            $this->processEmailForCompletedTask($email);
+            $this->processEmailForCompletedTask($mailId);
             return;
         }
         $asanaResultJson = json_decode($asanaResult->getBody());
         if ($asanaResultJson->data->completed) {
             $this->info('Completed!');
-            $this->processEmailForCompletedTask($email);
+            $this->processEmailForCompletedTask($mailId);
+        } else {
+            $this->info('Task not completed yet');
         }
     }
 
-    private function processEmailForCompletedTask(IncomingMail $email) {
-        $this->info('doing something with this email');
+    private function processEmailForCompletedTask($mailId)
+    {
+        $this->info('Moving email to other mailbox');
+        $this->mailbox->moveMail($mailId, self::COMPLETEDEMAILSFOLDER);
     }
 
 }
