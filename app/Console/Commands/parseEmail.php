@@ -52,7 +52,7 @@ class parseEmail extends Command
     {
         $mailserver = '{' . env('EMAIL_HOSTNAME') . ':993/imap/ssl}';
         $this->mailbox = new Mailbox(
-            $mailserver.'INBOX', // IMAP server and mailbox folder
+            $mailserver . 'INBOX', // IMAP server and mailbox folder
             env('EMAIL_USERNAME'), // Username for the before configured mailbox
             env('EMAIL_PASSWORD'), // Password for the before configured username
             null, // Directory, where attachments will be saved (optional)
@@ -79,7 +79,7 @@ class parseEmail extends Command
 
         $mailboxes = ($this->rootMailbox->getListingFolders());
 
-        if (in_array($mailserver. self::COMPLETEDEMAILSFOLDER, $mailboxes, true ) === false ) {
+        if (in_array($mailserver . self::COMPLETEDEMAILSFOLDER, $mailboxes, true) === false) {
             $this->info('Creating mailbox for parsed emails');
             $this->info('');
             $this->rootMailbox->createMailbox(self::COMPLETEDEMAILSFOLDER);
@@ -108,8 +108,12 @@ class parseEmail extends Command
         $this->info('Subject: ' . $this->mailbox->decodeMimeStr($email->headers->subject));
         $mailText = $email->textHtml;
         if (preg_match('/taskId\': \'(?<digit>\d+)/', $mailText, $regexResults) === 0) {
-            $this->info('No task id found');
-            return;
+            $this->info('No modern task id found');
+            if (preg_match('/(?<digit>\d+)%2Ff&hash=/', $mailText, $regexResults) === 0) {
+                $this->info('No old task id found');
+                return;
+            }
+            $this->info('Old task id found');
         }
         $taskId = $regexResults['digit'];
 
@@ -136,13 +140,13 @@ class parseEmail extends Command
             $this->info('Completed!');
             $this->processEmailForCompletedTask($mailId);
         } else {
-            $this->info('Task not completed yet');
+            $this->info('<fg=yellow>Task not completed yet</>');
         }
     }
 
     private function processEmailForCompletedTask($mailId)
     {
-        $this->info('Moving email to other mailbox');
+        $this->info('<fg=magenta>Moving email to other mailbox</>');
         $this->mailbox->moveMail($mailId, self::COMPLETEDEMAILSFOLDER);
     }
 
