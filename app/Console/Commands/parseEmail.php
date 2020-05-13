@@ -9,11 +9,12 @@ use PhpImap\Exceptions\ConnectionException;
 use PhpImap\Exceptions\InvalidParameterException;
 use PhpImap\IncomingMail;
 use PhpImap\Mailbox;
+use Psr\Http\Message\ResponseInterface;
 
 class parseEmail extends Command
 {
-    const COMPLETEDASANAEMAILSFOLDER = 'Completed Asana tasks';
-    const MERGEDMRSEMAILSFOLDER = 'Merged MRs';
+    private const COMPLETEDASANAEMAILSFOLDER = 'Completed Asana tasks';
+    private const MERGEDMRSEMAILSFOLDER = 'Merged MRs';
 
     /**
      * The name and signature of the console command.
@@ -49,7 +50,6 @@ class parseEmail extends Command
      * Execute the console command.
      *
      * @return mixed
-     * @throws InvalidParameterException
      */
     public function handle()
     {
@@ -104,10 +104,10 @@ class parseEmail extends Command
                 ]
             );
         } catch (ClientException $e) {
-            if ($e->getCode() == 403) {
+            if ($e->getCode() === 403) {
                 $this->info('No access to this task, probably old and removed');
+                $this->moveEmail($mailId, self::COMPLETEDASANAEMAILSFOLDER);
             }
-            $this->moveEmail($mailId);
             return;
         }
         $asanaResultJson = json_decode($asanaResult->getBody());
@@ -143,32 +143,36 @@ class parseEmail extends Command
         $this->info('');
         $email = $this->mailbox->getMail($mailId, false);
         $this->info('Subject: ' . $this->mailbox->decodeMimeStr($email->headers->subject));
-        if (preg_match('/X-GitLab-Project-Id: (?<digit>\d+)/', $email->headersRaw, $regexResultProjectId) === 0) {
+        if (preg_match('/X-GitLab-Project-Id: (?<digit>\d+)/i', $email->headersRaw, $regexResultProjectId) === 0) {
             $this->info('<fg=yellow>No project id found</>');
             return;
         }
-        if (preg_match('/X-GitLab-MergeRequest-IID: (?<digit>\d+)/', $email->headersRaw, $regexResultMRId) === 0) {
+        $projectId = $regexResultProjectId['digit'];
+        if (preg_match('/X-GitLab-Pipeline-Id: (?<digit>\d+)/i', $email->headersRaw, $regexResultPipelineId) !== 0) {
+            $pipelineId = $regexResultPipelineId['digit'];
+            $gitlabResult = $this->gitlabRequest('projects/' . $projectId . '/pipelines/' . $pipelineId);
+            $gitlabResultJson = json_decode($gitlabResult->getBody());
+            $branch = $gitlabResultJson->ref;
+            try {
+                $gitlabResult = $this->gitlabRequest('projects/' . $projectId . '/repository/branches/' . urlencode($branch));
+            } catch (ClientException $e) {
+                if ($e->getCode() === 404) {
+                    $this->info('<fg=yellow>Branch not found, probably deleted</>');
+                    $this->moveEmail($mailId, self::MERGEDMRSEMAILSFOLDER);
+                }
+                return;
+            }
+            $gitlabResultJson = json_decode($gitlabResult->getBody());
+            dd($gitlabResultJson);
+        }
+
+        if (preg_match('/X-GitLab-MergeRequest-IID: (?<digit>\d+)/i', $email->headersRaw, $regexResultMRId) === 0) {
             $this->info('<fg=yellow>No merge request id found</>');
             return;
         }
-        $projectId = $regexResultProjectId['digit'];
         $MRId = $regexResultMRId['digit'];
 
-        try {
-            $gitlabResult = $this->client->request(
-                'GET',
-                'https://git.maximum.nl/api/v4/projects/' . $projectId . '/merge_requests/' . $MRId,
-                [
-                    'headers' => [
-                        'Authorization' => 'Bearer ' . env('GITLAB_TOKEN'),
-                    ],
-                ]
-            );
-        } catch (ClientException $e) {
-            $this->error('Error connecting with Gitlab');
-            $this->error($e);
-            return;
-        }
+        $gitlabResult = $this->gitlabRequest('projects/' . $projectId . '/merge_requests/' . $MRId);
 
         $gitlabResultJson = json_decode($gitlabResult->getBody());
         $state = $gitlabResultJson->state;
@@ -206,6 +210,19 @@ class parseEmail extends Command
             $this->info('');
             $this->rootMailbox->createMailbox($newMailbox);
         }
+    }
+
+    private function gitlabRequest(string $path): ResponseInterface
+    {
+        return $this->client->request(
+            'GET',
+            'https://git.maximum.nl/api/v4/'. $path,
+            [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . env('GITLAB_TOKEN'),
+                ],
+            ]
+        );
     }
 
 }
