@@ -55,7 +55,7 @@ class parseEmail extends Command
             $mailserver.'INBOX', // IMAP server and mailbox folder
             env('EMAIL_USERNAME'), // Username for the before configured mailbox
             env('EMAIL_PASSWORD'), // Password for the before configured username
-            __DIR__, // Directory, where attachments will be saved (optional)
+            null, // Directory, where attachments will be saved (optional)
             'UTF-8' // Server encoding (optional)
         );
 
@@ -72,9 +72,10 @@ class parseEmail extends Command
             '{' . env('EMAIL_HOSTNAME') . ':993/imap/ssl}', // IMAP server and mailbox folder
             env('EMAIL_USERNAME'), // Username for the before configured mailbox
             env('EMAIL_PASSWORD'), // Password for the before configured username
-            __DIR__, // Directory, where attachments will be saved (optional)
+            null, // Directory, where attachments will be saved (optional)
             'UTF-8' // Server encoding (optional)
         );
+        $this->rootMailbox->setAttachmentsIgnore(true);
 
         $mailboxes = ($this->rootMailbox->getListingFolders());
 
@@ -103,7 +104,7 @@ class parseEmail extends Command
     private function parseEmail($mailId)
     {
         $this->info('');
-        $email = $this->mailbox->getMail($mailId);
+        $email = $this->mailbox->getMail($mailId, false);
         $this->info('Subject: ' . $this->mailbox->decodeMimeStr($email->headers->subject));
         $mailText = $email->textHtml;
         if (preg_match('/taskId\': \'(?<digit>\d+)/', $mailText, $regexResults) === 0) {
