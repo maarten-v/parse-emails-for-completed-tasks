@@ -14,6 +14,7 @@ class parseEmail extends Command
 {
     const COMPLETEDASANAEMAILSFOLDER = 'Completed Asana tasks';
     const MERGEDMRSEMAILSFOLDER = 'Merged MRs';
+
     /**
      * The name and signature of the console command.
      *
@@ -32,6 +33,7 @@ class parseEmail extends Command
      * @var string
      */
     protected $description = 'Command description';
+    private string $mailserver;
 
     /**
      * Create a new command instance.
@@ -51,86 +53,31 @@ class parseEmail extends Command
      */
     public function handle()
     {
-        $mailserver = '{' . env('EMAIL_HOSTNAME') . ':993/imap/ssl}';
-        $this->mailbox = new Mailbox(
-            $mailserver . 'INBOX', // IMAP server and mailbox folder
-            env('EMAIL_USERNAME'), // Username for the before configured mailbox
-            env('EMAIL_PASSWORD'), // Password for the before configured username
-            null, // Directory, where attachments will be saved (optional)
-            'UTF-8' // Server encoding (optional)
-        );
-        $this->mailbox->setAttachmentsIgnore(true);
-
-        $this->rootMailbox = new Mailbox(
-            '{' . env('EMAIL_HOSTNAME') . ':993/imap/ssl}', // IMAP server and mailbox folder
-            env('EMAIL_USERNAME'), // Username for the before configured mailbox
-            env('EMAIL_PASSWORD'), // Password for the before configured username
-            null, // Directory, where attachments will be saved (optional)
-            'UTF-8' // Server encoding (optional)
-        );
-        $this->rootMailbox->setAttachmentsIgnore(true);
+        $this->mailserver = '{' . env('EMAIL_HOSTNAME') . ':993/imap/ssl}';
+        $this->mailbox = $this->mailboxConnection('INBOX');
+        $this->rootMailbox = $this->mailboxConnection('');
         $mailboxes = ($this->rootMailbox->getListingFolders());
-
-        if (in_array($mailserver . self::COMPLETEDASANAEMAILSFOLDER, $mailboxes, true) === false) {
-            $this->info('Creating mailbox for parsed Asana emails');
-            $this->info('');
-            $this->rootMailbox->createMailbox(self::COMPLETEDASANAEMAILSFOLDER);
-        }
-
-        if (in_array($mailserver . self::MERGEDMRSEMAILSFOLDER, $mailboxes, true) === false) {
-            $this->info('Creating mailbox for parsed Gitlab emails');
-            $this->info('');
-            $this->rootMailbox->createMailbox(self::MERGEDMRSEMAILSFOLDER);
-        }
 
         $this->client = new Client();
 
-        try {
-            // Get all emails (messages)
-            // PHP.net imap_search criteria: http://php.net/manual/en/function.imap-search.php
-            $mailsIds = $this->mailbox->searchMailbox('FROM gitlab@maximum.nl');
-        } catch (ConnectionException $ex) {
-            echo "IMAP connection failed: " . $ex;
-            die();
-        }
-
-        // If $mailsIds is empty, no emails could be found
-        if (!$mailsIds) {
-            die('No emails from Asana found in Inbox');
-        }
-
-        foreach ($mailsIds as $mailId) {
+        // Parse Gitlab emails
+        $this->createMailbox($mailboxes, self::MERGEDMRSEMAILSFOLDER);
+        $gitlabEmails = $this->findEmails('gitlab@maximum.nl');
+        foreach ($gitlabEmails as $mailId) {
             $this->processEmailForMergedMR($mailId);
         }
 
-        try {
-            // Get all emails (messages)
-            // PHP.net imap_search criteria: http://php.net/manual/en/function.imap-search.php
-            $mailsIds = $this->mailbox->searchMailbox('FROM mail.asana.com');
-        } catch (ConnectionException $ex) {
-            echo "IMAP connection failed: " . $ex;
-            die();
-        }
-
-        if (in_array($mailserver . self::COMPLETEDASANAEMAILSFOLDER, $mailboxes, true) === false) {
-            $this->info('Creating mailbox for parsed emails');
-            $this->info('');
-            $this->rootMailbox->createMailbox(self::COMPLETEDASANAEMAILSFOLDER);
-        }
-
-        // If $mailsIds is empty, no emails could be found
-        if (!$mailsIds) {
-            die('No emails from Asana found in Inbox');
-        }
-
-        foreach ($mailsIds as $mailId) {
+        // Parse Asana emails
+        $this->createMailbox($mailboxes, self::COMPLETEDASANAEMAILSFOLDER);
+        $asanaEmails = $this->findEmails('mail.asana.com');
+        foreach ($asanaEmails as $mailId) {
             $this->parseAsanaEmail($mailId);
         }
 
         return null;
     }
 
-    private function parseAsanaEmail($mailId)
+    private function parseAsanaEmail($mailId): void
     {
         $this->info('');
         $email = $this->mailbox->getMail($mailId, false);
@@ -145,7 +92,6 @@ class parseEmail extends Command
             $this->info('Old task id found');
         }
         $taskId = $regexResults['digit'];
-
 
         try {
             $asanaResult = $this->client->request(
@@ -173,7 +119,27 @@ class parseEmail extends Command
         }
     }
 
-    private function processEmailForMergedMR($mailId) {
+    private function findEmails(string $fromAddress): array
+    {
+        try {
+            // Get all emails (messages)
+            // PHP.net imap_search criteria: http://php.net/manual/en/function.imap-search.php
+            $mailsIds = $this->mailbox->searchMailbox('FROM ' . $fromAddress);
+        } catch (ConnectionException $ex) {
+            echo "IMAP connection failed: " . $ex;
+            die();
+        }
+
+        // If $mailsIds is empty, no emails could be found
+        if (!$mailsIds) {
+            $this->info('No emails found from ' . $fromAddress . ' in inbox');
+        }
+
+        return $mailsIds;
+    }
+
+    private function processEmailForMergedMR($mailId): void
+    {
         $this->info('');
         $email = $this->mailbox->getMail($mailId, false);
         $this->info('Subject: ' . $this->mailbox->decodeMimeStr($email->headers->subject));
@@ -191,7 +157,7 @@ class parseEmail extends Command
         try {
             $gitlabResult = $this->client->request(
                 'GET',
-                'https://git.maximum.nl/api/v4/projects/'. $projectId. '/merge_requests/'. $MRId,
+                'https://git.maximum.nl/api/v4/projects/' . $projectId . '/merge_requests/' . $MRId,
                 [
                     'headers' => [
                         'Authorization' => 'Bearer ' . env('GITLAB_TOKEN'),
@@ -206,17 +172,40 @@ class parseEmail extends Command
 
         $gitlabResultJson = json_decode($gitlabResult->getBody());
         $state = $gitlabResultJson->state;
-        $this->info('<fg=yellow>State: '. $state. '</>');
+        $this->info('<fg=yellow>State: ' . $state . '</>');
         if ($state === 'merged' || $state === 'closed') {
             $this->moveEmail($mailId, self::MERGEDMRSEMAILSFOLDER);
         }
-
     }
 
-    private function moveEmail($mailId, $folder)
+    private function moveEmail($mailId, $folder): void
     {
         $this->info('<fg=magenta>Moving email to other mailbox</>');
         $this->mailbox->moveMail($mailId, $folder);
+    }
+
+    private function mailboxConnection(string $mailbox): Mailbox
+    {
+        $mailbox = new Mailbox(
+            $this->mailserver . $mailbox, // IMAP server and mailbox folder
+            env('EMAIL_USERNAME'), // Username for the before configured mailbox
+            env('EMAIL_PASSWORD'), // Password for the before configured username
+            null, // Directory, where attachments will be saved (optional)
+            'UTF-8' // Server encoding (optional)
+        );
+        $mailbox->setAttachmentsIgnore(true);
+
+        return $mailbox;
+    }
+
+    private function createMailbox(array $mailboxes, string $newMailbox): void
+    {
+        if (in_array($this->mailserver . $newMailbox, $mailboxes, true) === false) {
+            $this->info('');
+            $this->info('Creating mailbox: ' . $newMailbox);
+            $this->info('');
+            $this->rootMailbox->createMailbox($newMailbox);
+        }
     }
 
 }
