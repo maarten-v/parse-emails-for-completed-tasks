@@ -62,7 +62,7 @@ class parseEmail extends Command
 
         // Parse Gitlab emails
         $this->createMailbox($mailboxes, self::MERGEDMRSEMAILSFOLDER);
-        $gitlabEmails = $this->findEmails('gitlab@maximum.nl');
+        $gitlabEmails = $this->findEmails(env('GITLAB_EMAILADDRESS'));
         foreach ($gitlabEmails as $mailId) {
             $this->processEmailForMergedMR($mailId);
         }
@@ -154,7 +154,9 @@ class parseEmail extends Command
             $gitlabResultJson = json_decode($gitlabResult->getBody());
             $branch = $gitlabResultJson->ref;
             try {
-                $gitlabResult = $this->gitlabRequest('projects/' . $projectId . '/repository/branches/' . urlencode($branch));
+                $gitlabResult = $this->gitlabRequest(
+                    'projects/' . $projectId . '/repository/branches/' . urlencode($branch)
+                );
             } catch (ClientException $e) {
                 if ($e->getCode() === 404) {
                     $this->info('<fg=yellow>Branch not found, probably deleted</>');
@@ -216,7 +218,7 @@ class parseEmail extends Command
     {
         return $this->client->request(
             'GET',
-            'https://git.maximum.nl/api/v4/'. $path,
+            'https://' . env('GITLAB_HOSTNAME') . '/api/v4/' . $path,
             [
                 'headers' => [
                     'Authorization' => 'Bearer ' . env('GITLAB_TOKEN'),
