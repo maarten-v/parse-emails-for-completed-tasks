@@ -15,6 +15,7 @@ class parseEmail extends Command
 {
     private const COMPLETEDASANAEMAILSFOLDER = 'Completed Asana tasks';
     private const MERGEDMRSEMAILSFOLDER = 'Merged MRs';
+    private const COMPLETEDHACKERONEREPORTS = 'Completed Hackerone reports';
 
     /**
      * The name and signature of the console command.
@@ -59,6 +60,13 @@ class parseEmail extends Command
         $mailboxes = ($this->rootMailbox->getListingFolders());
 
         $this->client = new Client();
+
+        // Parse Hakcerone emails
+        $this->createMailbox($mailboxes, self::COMPLETEDHACKERONEREPORTS);
+        $hackeroneEmails = $this->findEmails('no-reply@hackerone.com');
+        foreach ($hackeroneEmails as $mailId) {
+            $this->processHackeroneEmail($mailId);
+        }
 
         // Parse Gitlab emails
         $this->createMailbox($mailboxes, self::MERGEDMRSEMAILSFOLDER);
@@ -116,6 +124,35 @@ class parseEmail extends Command
             $this->moveEmail($mailId, self::COMPLETEDASANAEMAILSFOLDER);
         } else {
             $this->info('<fg=yellow>Task not completed yet</>');
+        }
+    }
+
+    private function processHackeroneEmail($mailId)
+    {
+        $this->info('');
+        $email = $this->mailbox->getMail($mailId, false);
+        $this->info('Subject: ' . $this->mailbox->decodeMimeStr($email->headers->subject));
+        if (preg_match('/#(?<digit>\d+)/', $email->headersRaw, $regexResult) === 0) {
+            $this->info('<fg=yellow>No report id found</>');
+            return;
+        }
+        $reportId = $regexResult['digit'];
+
+        $guzzleResult = $this->client->request(
+            'GET',
+            'https://api.hackerone.com/v1/reports/' . $reportId,
+            [
+                'auth' => [
+                    env('HACKERONE_TOKEN_IDENTIFIER'),
+                    env('HACKERONE_TOKEN_VALUE'),
+                ],
+            ]
+        );
+        $guzzleResultJson = json_decode($guzzleResult->getBody());
+        $state = $guzzleResultJson->data->attributes->state;
+        $this->info("<fg=yellow>$state</>");
+        if (in_array($state, ['informative', 'resolved', 'not-applicable', 'duplicate'])) {
+            $this->moveEmail($mailId, self::COMPLETEDHACKERONEREPORTS);
         }
     }
 
