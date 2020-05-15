@@ -151,7 +151,7 @@ class parseEmail extends Command
         $guzzleResultJson = json_decode($guzzleResult->getBody());
         $state = $guzzleResultJson->data->attributes->state;
         $this->info("<fg=yellow>$state</>");
-        if (in_array($state, ['informative', 'resolved', 'not-applicable', 'duplicate'])) {
+        if (in_array($state, ['informative', 'resolved', 'not-applicable', 'duplicate', 'spam'])) {
             $this->moveEmail($mailId, self::COMPLETEDHACKERONEREPORTS);
         }
     }
