@@ -34,7 +34,7 @@ class parseEmail extends Command
      *
      * @var string
      */
-    protected $description = 'Command description';
+    protected $description = 'Move emails from completed Asana tasks and merged Gitlab MR\'s to seperate email folders';
     private string $mailserver;
 
     /**
@@ -118,7 +118,7 @@ class parseEmail extends Command
             }
             return;
         }
-        $asanaResultJson = json_decode($asanaResult->getBody());
+        $asanaResultJson = json_decode($asanaResult->getBody(), false, 512, JSON_THROW_ON_ERROR);
         if ($asanaResultJson->data->completed) {
             $this->info('Completed!');
             $this->moveEmail($mailId, self::COMPLETEDASANAEMAILSFOLDER);
@@ -201,7 +201,7 @@ class parseEmail extends Command
                 }
                 return;
             }
-            $gitlabResultJson = json_decode($gitlabResult->getBody());
+            $gitlabResultJson = json_decode($gitlabResult->getBody(), false, 512, JSON_THROW_ON_ERROR);
             dd($gitlabResultJson);
         }
 
