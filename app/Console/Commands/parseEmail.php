@@ -16,6 +16,7 @@ class parseEmail extends Command
     private const COMPLETEDASANAEMAILSFOLDER = 'Completed Asana tasks';
     private const MERGEDMRSEMAILSFOLDER = 'Merged MRs';
     private const COMPLETEDHACKERONEREPORTS = 'Completed Hackerone reports';
+    private const CLOSEDOPSGENIEALERTS = 'Closed Opsgenie alerts';
 
     /**
      * The name and signature of the console command.
@@ -61,6 +62,13 @@ class parseEmail extends Command
 
         $this->client = new Client();
 
+        // Parse Opsgenie alerts
+        $this->createMailbox($mailboxes, self::CLOSEDOPSGENIEALERTS);
+        $opsgenieEmails = $this->findEmails('opsgenie@eu.opsgenie.net');
+        foreach ($opsgenieEmails as $mailId) {
+            $this->parseOpsgnieEmail($mailId);
+        }
+
         // Parse Hakcerone emails
         $this->createMailbox($mailboxes, self::COMPLETEDHACKERONEREPORTS);
         $hackeroneEmails = $this->findEmails('no-reply@hackerone.com');
@@ -83,6 +91,17 @@ class parseEmail extends Command
         }
 
         return null;
+    }
+
+    private function parseOpsgnieEmail($mailId): void
+    {
+        $this->info('');
+        $email = $this->mailbox->getMail($mailId, false);
+        $subject = $this->mailbox->decodeMimeStr($email->headers->subject);
+        $this->info('Subject: ' . $subject);
+        if (substr($subject, 0, 6) === 'Closed' || substr($subject,0,5) === 'Acked') {
+            $this->moveEmail($mailId, self::CLOSEDOPSGENIEALERTS);
+        }
     }
 
     private function parseAsanaEmail($mailId): void
