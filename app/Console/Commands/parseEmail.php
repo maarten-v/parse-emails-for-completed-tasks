@@ -15,8 +15,9 @@ class parseEmail extends Command
 {
     private const COMPLETEDASANAEMAILSFOLDER = 'Completed Asana tasks';
     private const MERGEDMRSEMAILSFOLDER = 'Merged MRs';
-    private const COMPLETEDHACKERONEREPORTS = 'Completed Hackerone reports';
-    private const CLOSEDOPSGENIEALERTS = 'Closed Opsgenie alerts';
+    private const COMPLETEDHACKERONEREPORTSFOLDER = 'Completed Hackerone reports';
+    private const CLOSEDOPSGENIEALERTSFOLDER = 'Closed Opsgenie alerts';
+    private const CLOSEDSENTRYREPORTSFOLDER = 'Closed Sentry reports';
 
     /**
      * The name and signature of the console command.
@@ -62,45 +63,97 @@ class parseEmail extends Command
 
         $this->client = new Client();
 
-        // Parse Opsgenie alerts
-        $this->createMailbox($mailboxes, self::CLOSEDOPSGENIEALERTS);
-        $opsgenieEmails = $this->findEmails('opsgenie@eu.opsgenie.net');
-        foreach ($opsgenieEmails as $mailId) {
-            $this->parseOpsgnieEmail($mailId);
+        if (env('SENTRY_ENABLED')) {
+            $this->createMailbox($mailboxes, self::CLOSEDSENTRYREPORTSFOLDER);
+            $sentryEmails = $this->findEmails(env('SENTRY_EMAILADDRESS'));
+            foreach ($sentryEmails as $mailId) {
+                $this->parseSentryEmail($mailId);
+            }
         }
 
-        // Parse Hakcerone emails
-        $this->createMailbox($mailboxes, self::COMPLETEDHACKERONEREPORTS);
-        $hackeroneEmails = $this->findEmails('no-reply@hackerone.com');
-        foreach ($hackeroneEmails as $mailId) {
-            $this->processHackeroneEmail($mailId);
+        // Parse Opsgenie alerts
+        if (env('OPSGENIE_ENABLED')) {
+            $this->createMailbox($mailboxes, self::CLOSEDOPSGENIEALERTSFOLDER);
+            $opsgenieEmails = $this->findEmails('opsgenie@eu.opsgenie.net');
+            foreach ($opsgenieEmails as $mailId) {
+                $this->parseOpsgenieEmail($mailId);
+            }
+        }
+
+        // Parse Hackerone emails
+        if (env('HACKERONE_ENABLED')) {
+            $this->createMailbox($mailboxes, self::COMPLETEDHACKERONEREPORTSFOLDER);
+            $hackeroneEmails = $this->findEmails('no-reply@hackerone.com');
+            foreach ($hackeroneEmails as $mailId) {
+                $this->processHackeroneEmail($mailId);
+            }
         }
 
         // Parse Gitlab emails
-        $this->createMailbox($mailboxes, self::MERGEDMRSEMAILSFOLDER);
-        $gitlabEmails = $this->findEmails(env('GITLAB_EMAILADDRESS'));
-        foreach ($gitlabEmails as $mailId) {
-            $this->processEmailForMergedMR($mailId);
+        if (env('GITLAB_ENABLED')) {
+            $this->createMailbox($mailboxes, self::MERGEDMRSEMAILSFOLDER);
+            $gitlabEmails = $this->findEmails(env('GITLAB_EMAILADDRESS'));
+            foreach ($gitlabEmails as $mailId) {
+                $this->processEmailForMergedMR($mailId);
+            }
         }
 
         // Parse Asana emails
-        $this->createMailbox($mailboxes, self::COMPLETEDASANAEMAILSFOLDER);
-        $asanaEmails = $this->findEmails('mail.asana.com');
-        foreach ($asanaEmails as $mailId) {
-            $this->parseAsanaEmail($mailId);
+        if (env('ASANA_ENABLED')) {
+            $this->createMailbox($mailboxes, self::COMPLETEDASANAEMAILSFOLDER);
+            $asanaEmails = $this->findEmails('mail.asana.com');
+            foreach ($asanaEmails as $mailId) {
+                $this->parseAsanaEmail($mailId);
+            }
         }
 
         return null;
     }
 
-    private function parseOpsgnieEmail($mailId): void
+    private function parseSentryEmail($mailId): void
     {
         $this->info('');
         $email = $this->mailbox->getMail($mailId, false);
         $subject = $this->mailbox->decodeMimeStr($email->headers->subject);
         $this->info('Subject: ' . $subject);
-        if (substr($subject, 0, 6) === 'Closed' || substr($subject,0,5) === 'Acked') {
-            $this->moveEmail($mailId, self::CLOSEDOPSGENIEALERTS);
+        if (preg_match('/X-Sentry-Reply-To: (?<digit>\d+)/i', $email->headersRaw, $regexResultReportId) === 0) {
+            $this->info('<fg=yellow>No report id found</>');
+            return;
+        }
+        try {
+            $sentryResult = $this->client->request(
+                'GET',
+                'https://' . env('SENTRY_HOSTNAME') . '/api/0/issues/' . $regexResultReportId['digit'] . '/',
+                [
+                    'headers' => [
+                        'Authorization' => 'Bearer ' . env('SENTRY_TOKEN'),
+                    ],
+                ]
+            );
+        } catch (ClientException $e) {
+            if ($e->getCode() === 404) {
+                $this->info('Report is not found, probably old and removed. Id: '. $regexResultReportId['digit']);
+                $this->moveEmail($mailId, self::CLOSEDSENTRYREPORTSFOLDER);
+            }
+            return;
+        }
+        $sentryResult = json_decode($sentryResult->getBody(), false, 512, JSON_THROW_ON_ERROR);
+        $status = $sentryResult->status;
+        $this->info("<fg=yellow>Status: $status</>");
+        if ($status==='resolved') {
+            $this->moveEmail($mailId, self::CLOSEDSENTRYREPORTSFOLDER);
+        }
+
+    }
+
+    private function parseOpsgenieEmail($mailId): void
+    {
+        $this->info('');
+        $email = $this->mailbox->getMail($mailId, false);
+        $subject = $this->mailbox->decodeMimeStr($email->headers->subject);
+        $this->info('Subject: ' . $subject);
+        if (substr($subject, 0, 6) === 'Closed' || substr($subject, 0, 5) === 'Acked') {
+            $this->moveEmail($mailId, self::CLOSEDOPSGENIEALERTSFOLDER);
         }
     }
 
@@ -171,7 +224,7 @@ class parseEmail extends Command
         $state = $guzzleResultJson->data->attributes->state;
         $this->info("<fg=yellow>$state</>");
         if (in_array($state, ['informative', 'resolved', 'not-applicable', 'duplicate', 'spam'])) {
-            $this->moveEmail($mailId, self::COMPLETEDHACKERONEREPORTS);
+            $this->moveEmail($mailId, self::COMPLETEDHACKERONEREPORTSFOLDER);
         }
     }
 
