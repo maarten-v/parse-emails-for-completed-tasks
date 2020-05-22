@@ -132,7 +132,7 @@ class parseEmail extends Command
             );
         } catch (ClientException $e) {
             if ($e->getCode() === 404) {
-                $this->info('Report is not found, probably old and removed. Id: '. $regexResultReportId['digit']);
+                $this->info('Report is not found, probably old and removed. Id: ' . $regexResultReportId['digit']);
                 $this->moveEmail($mailId, self::CLOSEDSENTRYREPORTSFOLDER);
             }
             return;
@@ -140,10 +140,9 @@ class parseEmail extends Command
         $sentryResult = json_decode($sentryResult->getBody(), false, 512, JSON_THROW_ON_ERROR);
         $status = $sentryResult->status;
         $this->info("<fg=yellow>Status: $status</>");
-        if ($status==='resolved') {
+        if ($status === 'resolved' || $status === 'ignored') {
             $this->moveEmail($mailId, self::CLOSEDSENTRYREPORTSFOLDER);
         }
-
     }
 
     private function parseOpsgenieEmail($mailId): void
