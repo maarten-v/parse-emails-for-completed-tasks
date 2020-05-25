@@ -5,25 +5,26 @@ This app reads your emailbox for all Asana emails, Gitlab emails, Hackerone emai
 - `composer install`
 - Copy .env.example to .env and fill in the details
 ### Create an Asana access token
-    - Login at asana.com
-    - Click your profile photo from the topbar
-    - Select My Profile Settings…
-    - Open the Apps tab
-    - Click Manage Developer Apps
-    - Click + New Access Token
-    - Add the token to the .env
+- Login at asana.com
+- Click your profile photo from the topbar
+- Select My Profile Settings…
+- Open the Apps tab
+- Click Manage Developer Apps
+- Click + New Access Token
+- Add the token to the .env
 ### Create a Gitlab token
-    - Navigate to https://gitlabdomain/profile/personal_access_tokens
-    - Create a token with api access
-    - Add the token to the .env
+- Navigate to https://gitlabdomain/profile/personal_access_tokens
+- Create a token with api access
+- Add the token to the .env
 ### Create a HackerOne token
-    - Navigate to https://hackerone.com/<program url>/api
-    - Create a token with read access
-    - Add the token to the .env
+- Navigate to https://hackerone.com/<program url>/api
+- Create a token with read access
+- Add the token to the .env
 ### Create a Sentry token
-    - Navigate to https://sentrydomainname/api/
-    - Create a token with read access
-    - Add the name and the token to the .env
+- Navigate to https://sentrydomainname/api/
+- Create a token with read access
+- Add the name and the token to the .env
+
 - run `art parse-email`
 
 
