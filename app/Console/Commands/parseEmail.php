@@ -344,7 +344,7 @@ class parseEmail extends Command
                 return;
             }
             $gitlabResultJson = json_decode($gitlabResult->getBody(), false, 512, JSON_THROW_ON_ERROR);
-            dd($gitlabResultJson);
+            dump($gitlabResultJson);
         }
 
         if (preg_match('/X-GitLab-MergeRequest-IID: (?<digit>\d+)/i', $email->headersRaw, $regexResultMRId) === 0) {
