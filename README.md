@@ -17,7 +17,7 @@ This app reads your emailbox for all Asana emails, Gitlab emails, Hackerone emai
 - Create a token with api access
 - Add the token to the .env
 ### Create a HackerOne token
-- Navigate to https://hackerone.com/<program url>/api
+- Navigate to https://hackerone.com/program_url/api
 - Create a token with read access
 - Add the token to the .env
 ### Create a Sentry token
