@@ -172,7 +172,7 @@ class parseEmail extends Command
         $email = $this->mailbox->getMail($mailId, false);
         $subject = $this->mailbox->decodeMimeStr($email->headers->subject);
         $this->info('Subject: ' . $subject);
-        if (substr($subject, 0, 6) === 'Closed' || substr($subject, 0, 5) === 'Acked') {
+        if (strpos($subject, 'Closed') === 0 || strpos($subject, 'Acked') === 0) {
             $this->moveEmail($mailId, self::CLOSEDOPSGENIEALERTSFOLDER);
         }
     }
