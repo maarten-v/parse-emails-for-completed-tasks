@@ -24,7 +24,7 @@ This app reads your emailbox for all Asana emails, Gitlab emails, Hackerone emai
 - Navigate to https://sentrydomainname/api/
 - Create a token with read access
 - Add the name and the token to the .env
-
+<br>&nbsp;
 - run `art parse-email`
 
 
