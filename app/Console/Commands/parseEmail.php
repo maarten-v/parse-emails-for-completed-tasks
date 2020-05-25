@@ -18,6 +18,7 @@ class parseEmail extends Command
     private const COMPLETEDHACKERONEREPORTSFOLDER = 'Completed Hackerone reports';
     private const CLOSEDOPSGENIEALERTSFOLDER = 'Closed Opsgenie alerts';
     private const CLOSEDSENTRYREPORTSFOLDER = 'Closed Sentry reports';
+    private const CLOSEDZABBIXPROBLEMSFOLDER = 'Closed Zabbix problems';
 
     /**
      * The name and signature of the console command.
@@ -63,11 +64,31 @@ class parseEmail extends Command
 
         $this->client = new Client();
 
+        //Parse Sentry Reports
         if (env('SENTRY_ENABLED')) {
             $this->createMailbox($mailboxes, self::CLOSEDSENTRYREPORTSFOLDER);
             $sentryEmails = $this->findEmails(env('SENTRY_EMAILADDRESS'));
             foreach ($sentryEmails as $mailId) {
                 $this->parseSentryEmail($mailId);
+            }
+        }
+
+        // Parse Zabbix problems
+        if (env('ZABBIX_ENABLED')) {
+            $this->createMailbox($mailboxes, self::CLOSEDZABBIXPROBLEMSFOLDER);
+            $sentryEmails = $this->findEmails(env('ZABBIX_EMAILADDRESS'));
+            $zabbixCompletedIds = [];
+            foreach ($sentryEmails as $mailId) {
+                $isResolvedZabbixProblem = $this->isResolvedZabbixProblem($mailId);
+                if ($isResolvedZabbixProblem !== false) {
+                    $zabbixCompletedIds[] = $isResolvedZabbixProblem;
+                }
+            }
+            foreach ($sentryEmails as $mailId) {
+                $this->parseZabbixEmail($mailId, $zabbixCompletedIds);
+            }
+            foreach ($sentryEmails as $mailId) {
+                $this->parseZabbixResolvedEmail($mailId, $zabbixCompletedIds);
             }
         }
 
@@ -195,6 +216,56 @@ class parseEmail extends Command
             $this->moveEmail($mailId, self::COMPLETEDASANAEMAILSFOLDER);
         } else {
             $this->info('<fg=yellow>Task not completed yet</>');
+        }
+    }
+
+    private function isResolvedZabbixProblem($mailId)
+    {
+        $email = $this->mailbox->getMail($mailId, false);
+        $subject = $this->mailbox->decodeMimeStr($email->headers->subject);
+        if ((strpos($subject, 'Resolved:') !== 0)) {
+            return false;
+        }
+        $this->info('');
+        $this->info('Subject: ' . $subject);
+        if (preg_match('/Original problem ID: (?<digit>\d+)/', $email->textPlain, $regexResult) === 0) {
+            $this->info('<fg=yellow>No problem id found</>');
+            return false;
+        }
+        return $regexResult['digit'];
+    }
+
+    private function parseZabbixEmail($mailId, $completedIds) {
+        $email = $this->mailbox->getMail($mailId, false);
+        $subject = $this->mailbox->decodeMimeStr($email->headers->subject);
+        if ((strpos($subject, 'Problem:') !== 0)) {
+            return;
+        }
+        $this->info('');
+        $this->info('Subject: ' . $subject);
+        if (preg_match('/Original problem ID: (?<digit>\d+)/', $email->textPlain, $regexResult) === 0) {
+            $this->info('<fg=yellow>No problem id found</>');
+            return;
+        }
+        if (in_array($regexResult['digit'], $completedIds, true)) {
+            $this->moveEmail($mailId, self::CLOSEDZABBIXPROBLEMSFOLDER);
+        }
+    }
+
+    private function parseZabbixResolvedEmail($mailId, $completedIds) {
+        $email = $this->mailbox->getMail($mailId, false);
+        $subject = $this->mailbox->decodeMimeStr($email->headers->subject);
+        if ((strpos($subject, 'Resolved:') !== 0)) {
+            return;
+        }
+        $this->info('');
+        $this->info('Subject: ' . $subject);
+        if (preg_match('/Original problem ID: (?<digit>\d+)/', $email->textPlain, $regexResult) === 0) {
+            $this->info('<fg=yellow>No problem id found</>');
+            return;
+        }
+        if (in_array($regexResult['digit'], $completedIds, true)) {
+            $this->moveEmail($mailId, self::CLOSEDZABBIXPROBLEMSFOLDER);
         }
     }
 
