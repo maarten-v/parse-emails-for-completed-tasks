@@ -1,6 +1,6 @@
 So your emailbox is getting pretty full, you can't keep up anymore with all the tasks you have to do, and was that old email for this Asana task for a task that's already completed?
 It takes a lot of time to check for every email if it is something that is already handled or not.
-This app reads your emailbox for all Asana emails, Gitlab emails, Hackerone emails, Opsgenie Emails, Sentry emails, checks if the task is already completed or resolved, and if so, moves the email to a seperate emailbox.
+This app reads your emailbox for all Asana emails, Gitlab emails, Hackerone emails, Opsgenie Emails, Sentry emails, Zabbix emails, checks if the task is already completed or resolved, and if so, moves the email to a seperate emailbox.
 
 - `composer install`
 - Copy .env.example to .env and fill in the details
