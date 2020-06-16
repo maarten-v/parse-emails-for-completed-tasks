@@ -76,18 +76,18 @@ class parseEmail extends Command
         // Parse Zabbix problems
         if (env('ZABBIX_ENABLED')) {
             $this->createMailbox($mailboxes, self::CLOSEDZABBIXPROBLEMSFOLDER);
-            $sentryEmails = $this->findEmails(env('ZABBIX_EMAILADDRESS'));
+            $zabbixEmails = $this->findEmails(env('ZABBIX_EMAILADDRESS'));
             $zabbixCompletedIds = [];
-            foreach ($sentryEmails as $mailId) {
+            foreach ($zabbixEmails as $mailId) {
                 $isResolvedZabbixProblem = $this->isResolvedZabbixProblem($mailId);
                 if ($isResolvedZabbixProblem !== false) {
                     $zabbixCompletedIds[] = $isResolvedZabbixProblem;
                 }
             }
-            foreach ($sentryEmails as $mailId) {
-                $this->parseZabbixEmail($mailId, $zabbixCompletedIds);
-            }
-            foreach ($sentryEmails as $mailId) {
+            foreach ($zabbixEmails as $mailId) {
+                if ($this->parseZabbixEmail($mailId, $zabbixCompletedIds)) {
+                    continue;
+                }
                 $this->parseZabbixResolvedEmail($mailId, $zabbixCompletedIds);
             }
         }
@@ -239,17 +239,18 @@ class parseEmail extends Command
         $email = $this->mailbox->getMail($mailId, false);
         $subject = $this->mailbox->decodeMimeStr($email->headers->subject);
         if ((strpos($subject, 'Problem:') !== 0)) {
-            return;
+            return false;
         }
         $this->info('');
         $this->info('Subject: ' . $subject);
         if (preg_match('/Original problem ID: (?<digit>\d+)/', $email->textPlain, $regexResult) === 0) {
             $this->info('<fg=yellow>No problem id found</>');
-            return;
+            return false;
         }
         if (in_array($regexResult['digit'], $completedIds, true)) {
             $this->moveEmail($mailId, self::CLOSEDZABBIXPROBLEMSFOLDER);
         }
+        return true;
     }
 
     private function parseZabbixResolvedEmail($mailId, $completedIds) {
