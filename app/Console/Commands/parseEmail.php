@@ -353,9 +353,15 @@ class parseEmail extends Command
             return;
         }
         $MRId = $regexResultMRId['digit'];
-
-        $gitlabResult = $this->gitlabRequest('projects/' . $projectId . '/merge_requests/' . $MRId);
-
+        try {
+            $gitlabResult = $this->gitlabRequest('projects/' . $projectId . '/merge_requests/' . $MRId);
+        } catch (ClientException $e) {
+            if ($e->getCode() === 404) {
+                $this->info('<fg=yellow>Merge request not found, probably deleted</>');
+                $this->moveEmail($mailId, self::MERGEDMRSEMAILSFOLDER);
+            }
+            return;
+        }
         $gitlabResultJson = json_decode($gitlabResult->getBody());
         $state = $gitlabResultJson->state;
         $this->info('<fg=yellow>State: ' . $state . '</>');
@@ -372,16 +378,16 @@ class parseEmail extends Command
 
     private function mailboxConnection(string $mailbox): Mailbox
     {
-        $mailbox = new Mailbox(
+        $mailboxConnection = new Mailbox(
             $this->mailserver . $mailbox, // IMAP server and mailbox folder
             env('EMAIL_USERNAME'), // Username for the before configured mailbox
             env('EMAIL_PASSWORD'), // Password for the before configured username
             null, // Directory, where attachments will be saved (optional)
             'UTF-8' // Server encoding (optional)
         );
-        $mailbox->setAttachmentsIgnore(true);
+        $mailboxConnection->setAttachmentsIgnore(true);
 
-        return $mailbox;
+        return $mailboxConnection;
     }
 
     private function createMailbox(array $mailboxes, string $newMailbox): void
