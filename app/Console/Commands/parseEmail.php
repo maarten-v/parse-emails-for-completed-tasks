@@ -122,7 +122,7 @@ class parseEmail extends Command
         // Parse Asana emails
         if (env('ASANA_ENABLED')) {
             $this->createMailbox($mailboxes, self::COMPLETEDASANAEMAILSFOLDER);
-            $asanaEmails = $this->findEmails('mail.asana.com');
+            $asanaEmails = $this->findEmails('asana.com');
             foreach ($asanaEmails as $mailId) {
                 $this->parseAsanaEmail($mailId);
             }
