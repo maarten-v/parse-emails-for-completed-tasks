@@ -204,7 +204,7 @@ class parseEmail extends Command
                 ]
             );
         } catch (ClientException $e) {
-            if ($e->getCode() === 403) {
+            if (in_array($e->getCode(), [403, 404] , true)) {
                 $this->info('No access to this task, probably old and removed');
                 $this->moveEmail($mailId, self::COMPLETEDASANAEMAILSFOLDER);
             }
