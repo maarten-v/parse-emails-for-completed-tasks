@@ -57,7 +57,12 @@ class parseEmail extends Command
      */
     public function handle()
     {
-        $this->mailserver = '{' . env('EMAIL_HOSTNAME') . ':993/imap/ssl}';
+        $this->mailserver = '{' . env('EMAIL_HOSTNAME') . ':993/imap/ssl';
+        if (env('EMAIL_SHARED_BOX')) {
+            $this->mailserver .= '/authuser='. env('EMAIL_USERNAME'). '/user='.  env('EMAIL_SHARED_BOX');
+        }
+        $this->mailserver .= '}';
+
         $this->mailbox = $this->mailboxConnection('INBOX');
         $this->rootMailbox = $this->mailboxConnection('');
         $mailboxes = ($this->rootMailbox->getListingFolders());
