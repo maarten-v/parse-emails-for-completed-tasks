@@ -144,7 +144,7 @@ class parseEmail extends Command
         return null;
     }
 
-    private function parseSentryEmail($mailId): void
+    private function parseSentryEmail(string $mailId): void
     {
         $this->info('');
         $email = $this->mailbox->getMail($mailId, false);
@@ -179,7 +179,7 @@ class parseEmail extends Command
         }
     }
 
-    private function parseOpsgenieEmail($mailId): void
+    private function parseOpsgenieEmail(string $mailId): void
     {
         $this->info('');
         $email = $this->mailbox->getMail($mailId, false);
@@ -190,7 +190,7 @@ class parseEmail extends Command
         }
     }
 
-    private function parseAsanaEmail($mailId): void
+    private function parseAsanaEmail(string $mailId): void
     {
         $this->info('');
         $email = $this->mailbox->getMail($mailId, false);
@@ -232,7 +232,7 @@ class parseEmail extends Command
         }
     }
 
-    private function isResolvedZabbixProblem($mailId)
+    private function isResolvedZabbixProblem(string $mailId): bool
     {
         $email = $this->mailbox->getMail($mailId, false);
         $subject = $this->mailbox->decodeMimeStr($email->headers->subject);
@@ -248,7 +248,8 @@ class parseEmail extends Command
         return $regexResult['digit'];
     }
 
-    private function parseZabbixEmail($mailId, $completedIds) {
+    private function parseZabbixEmail(string $mailId, array $completedIds): bool
+    {
         $email = $this->mailbox->getMail($mailId, false);
         $subject = $this->mailbox->decodeMimeStr($email->headers->subject);
         if ((strpos($subject, 'Problem:') !== 0)) {
@@ -266,7 +267,8 @@ class parseEmail extends Command
         return true;
     }
 
-    private function parseZabbixResolvedEmail($mailId, $completedIds) {
+    private function parseZabbixResolvedEmail(string $mailId, array $completedIds): void
+    {
         $email = $this->mailbox->getMail($mailId, false);
         $subject = $this->mailbox->decodeMimeStr($email->headers->subject);
         if ((strpos($subject, 'Resolved:') !== 0)) {
@@ -283,7 +285,7 @@ class parseEmail extends Command
         }
     }
 
-    private function processHackeroneEmail($mailId)
+    private function processHackeroneEmail(string $mailId): void
     {
         $this->info('');
         $email = $this->mailbox->getMail($mailId, false);
@@ -312,7 +314,7 @@ class parseEmail extends Command
         }
     }
 
-    private function processJiraEmail($mailId)
+    private function processJiraEmail(string $mailId): void
     {
         $this->info('');
         $email = $this->mailbox->getMail($mailId, false);
@@ -359,7 +361,7 @@ class parseEmail extends Command
         return $mailsIds;
     }
 
-    private function processEmailForMergedMR($mailId): void
+    private function processEmailForMergedMR(string $mailId): void
     {
         $this->info('');
         $email = $this->mailbox->getMail($mailId, false);
@@ -411,7 +413,7 @@ class parseEmail extends Command
         }
     }
 
-    private function moveEmail($mailId, $folder): void
+    private function moveEmail(string $mailId, string $folder): void
     {
         $this->info('<fg=magenta>Moving email to other mailbox</>');
         $this->mailbox->moveMail($mailId, $folder);
