@@ -13,7 +13,7 @@ class Kernel extends ConsoleKernel
      * @var string[]
      */
     protected $commands = [
-        Commands\parseEmail::class,
+        Commands\ParseEmail::class,
     ];
 
     /**

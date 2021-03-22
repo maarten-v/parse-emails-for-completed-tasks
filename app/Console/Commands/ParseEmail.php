@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Console\Commands;
 
 use GuzzleHttp\Client;
@@ -10,7 +12,7 @@ use PhpImap\IncomingMail;
 use PhpImap\Mailbox;
 use Psr\Http\Message\ResponseInterface;
 
-class parseEmail extends Command
+class ParseEmail extends Command
 {
     private const COMPLETEDASANAEMAILSFOLDER = 'Completed Asana tasks';
     private const MERGEDMRSEMAILSFOLDER = 'Merged MRs';
@@ -54,12 +56,12 @@ class parseEmail extends Command
      * Execute the console command.
      *
      * @return mixed
-     */
+    */
     public function handle()
     {
-        $this->mailserver = '{' . env('EMAIL_HOSTNAME') . ':993/imap/ssl';
-        if (env('EMAIL_SHARED_BOX')) {
-            $this->mailserver .= '/authuser='. env('EMAIL_USERNAME'). '/user='.  env('EMAIL_SHARED_BOX');
+        $this->mailserver = '{' . \env('EMAIL_HOSTNAME') . ':993/imap/ssl';
+        if (\env('EMAIL_SHARED_BOX')) {
+            $this->mailserver .= '/authuser='. \env('EMAIL_USERNAME'). '/user='.  \env('EMAIL_SHARED_BOX');
         }
         $this->mailserver .= '}';
 
@@ -70,18 +72,18 @@ class parseEmail extends Command
         $this->client = new Client();
 
         //Parse Sentry Reports
-        if (env('SENTRY_ENABLED')) {
+        if (\env('SENTRY_ENABLED')) {
             $this->createMailbox($mailboxes, self::CLOSEDSENTRYREPORTSFOLDER);
-            $sentryEmails = $this->findEmails(env('SENTRY_EMAILADDRESS'));
+            $sentryEmails = $this->findEmails(\env('SENTRY_EMAILADDRESS'));
             foreach ($sentryEmails as $mailId) {
                 $this->parseSentryEmail($mailId);
             }
         }
 
         // Parse Zabbix problems
-        if (env('ZABBIX_ENABLED')) {
+        if (\env('ZABBIX_ENABLED')) {
             $this->createMailbox($mailboxes, self::CLOSEDZABBIXPROBLEMSFOLDER);
-            $zabbixEmails = $this->findEmails(env('ZABBIX_EMAILADDRESS'));
+            $zabbixEmails = $this->findEmails(\env('ZABBIX_EMAILADDRESS'));
             $zabbixCompletedIds = [];
             foreach ($zabbixEmails as $mailId) {
                 $isResolvedZabbixProblem = $this->isResolvedZabbixProblem($mailId);
@@ -98,7 +100,7 @@ class parseEmail extends Command
         }
 
         // Parse Opsgenie alerts
-        if (env('OPSGENIE_ENABLED')) {
+        if (\env('OPSGENIE_ENABLED')) {
             $this->createMailbox($mailboxes, self::CLOSEDOPSGENIEALERTSFOLDER);
             $opsgenieEmails = $this->findEmails('opsgenie@eu.opsgenie.net');
             foreach ($opsgenieEmails as $mailId) {
@@ -107,7 +109,7 @@ class parseEmail extends Command
         }
 
         // Parse Hackerone emails
-        if (env('HACKERONE_ENABLED')) {
+        if (\env('HACKERONE_ENABLED')) {
             $this->createMailbox($mailboxes, self::COMPLETEDHACKERONEREPORTSFOLDER);
             $hackeroneEmails = $this->findEmails('no-reply@hackerone.com');
             foreach ($hackeroneEmails as $mailId) {
@@ -116,25 +118,25 @@ class parseEmail extends Command
         }
 
         // Parse Jira emails
-        if (env('JIRA_ENBLED')) {
+        if (\env('JIRA_ENBLED')) {
             $this->createMailbox($mailboxes, self::COMPLETEDJIRAISSUESFOLDER);
-            $jiraEmails = $this->findEmails(env('JIRA_EMAILADDRESS'));
+            $jiraEmails = $this->findEmails(\env('JIRA_EMAILADDRESS'));
             foreach ($jiraEmails as $mailId) {
                 $this->processJiraEmail($mailId);
             }
         }
 
         // Parse Gitlab emails
-        if (env('GITLAB_ENABLED')) {
+        if (\env('GITLAB_ENABLED')) {
             $this->createMailbox($mailboxes, self::MERGEDMRSEMAILSFOLDER);
-            $gitlabEmails = $this->findEmails(env('GITLAB_EMAILADDRESS'));
+            $gitlabEmails = $this->findEmails(\env('GITLAB_EMAILADDRESS'));
             foreach ($gitlabEmails as $mailId) {
                 $this->processEmailForMergedMR($mailId);
             }
         }
 
         // Parse Asana emails
-        if (env('ASANA_ENABLED')) {
+        if (\env('ASANA_ENABLED')) {
             $this->createMailbox($mailboxes, self::COMPLETEDASANAEMAILSFOLDER);
             $asanaEmails = $this->findEmails('asana.com');
             foreach ($asanaEmails as $mailId) {
@@ -158,10 +160,10 @@ class parseEmail extends Command
         try {
             $sentryResult = $this->client->request(
                 'GET',
-                'https://' . env('SENTRY_HOSTNAME') . '/api/0/issues/' . $regexResultReportId['digit'] . '/',
+                'https://' . \env('SENTRY_HOSTNAME') . '/api/0/issues/' . $regexResultReportId['digit'] . '/',
                 [
                     'headers' => [
-                        'Authorization' => 'Bearer ' . env('SENTRY_TOKEN'),
+                        'Authorization' => 'Bearer ' . \env('SENTRY_TOKEN'),
                     ],
                 ]
             );
@@ -213,7 +215,7 @@ class parseEmail extends Command
                 'https://app.asana.com/api/1.0/tasks/' . $taskId,
                 [
                     'headers' => [
-                        'Authorization' => 'Bearer ' . env('ASANA_TOKEN'),
+                        'Authorization' => 'Bearer ' . \env('ASANA_TOKEN'),
                     ],
                 ]
             );
@@ -305,8 +307,8 @@ class parseEmail extends Command
             'https://api.hackerone.com/v1/reports/' . $reportId,
             [
                 'auth' => [
-                    env('HACKERONE_TOKEN_IDENTIFIER'),
-                    env('HACKERONE_TOKEN_VALUE'),
+                    \env('HACKERONE_TOKEN_IDENTIFIER'),
+                    \env('HACKERONE_TOKEN_VALUE'),
                 ],
             ]
         );
@@ -324,27 +326,26 @@ class parseEmail extends Command
         $email = $this->mailbox->getMail($mailId, false);
         $subject = $this->getSubject($email);
         $this->info('Subject: ' . $subject);
-        if (preg_match('/(?<code>\w+-\d+)/', $subject, $match )) {
+        if (preg_match('/(?<code>\w+-\d+)/', $subject, $match)) {
             $issueId = $match['code'];
             $guzzleResult = $this->client->request(
                 'GET',
                 'https://webparking.atlassian.net/rest/api/3/issue/' . $issueId . '?fields=status',
                 [
                     'auth' => [
-                        env('JIRA_USERNAME'),
-                        env('JIRA_TOKEN'),
+                        \env('JIRA_USERNAME'),
+                        \env('JIRA_TOKEN'),
                     ],
                     'headers' => [
                         'Accept' => 'application/json',
                     ]
                 ]
             );
-            $response = json_decode($guzzleResult->getBody());
+            $response = json_decode((string) $guzzleResult->getBody());
             if ($response->fields->status->statusCategory->key === 'done') {
                 $this->moveEmail($mailId, self::COMPLETEDJIRAISSUESFOLDER);
             }
         }
-
     }
 
     /** @return array<int,int> */
@@ -394,7 +395,7 @@ class parseEmail extends Command
                 return;
             }
             $gitlabResultJson = json_decode($gitlabResult->getBody(), false, 512, JSON_THROW_ON_ERROR);
-            dump($gitlabResultJson);
+            \dump($gitlabResultJson);
         }
 
         if (preg_match('/X-GitLab-MergeRequest-IID: (?<digit>\d+)/i', $this->getRawHeaders($email), $regexResultMRId) === 0) {
@@ -429,8 +430,8 @@ class parseEmail extends Command
     {
         $mailboxConnection = new Mailbox(
             $this->mailserver . $mailbox, // IMAP server and mailbox folder
-            env('EMAIL_USERNAME'), // Username for the before configured mailbox
-            env('EMAIL_PASSWORD'), // Password for the before configured username
+            \env('EMAIL_USERNAME'), // Username for the before configured mailbox
+            \env('EMAIL_PASSWORD'), // Password for the before configured username
             null, // Directory, where attachments will be saved (optional)
             'UTF-8' // Server encoding (optional)
         );
@@ -454,10 +455,10 @@ class parseEmail extends Command
     {
         return $this->client->request(
             'GET',
-            'https://' . env('GITLAB_HOSTNAME') . '/api/v4/' . $path,
+            'https://' . \env('GITLAB_HOSTNAME') . '/api/v4/' . $path,
             [
                 'headers' => [
-                    'Authorization' => 'Bearer ' . env('GITLAB_TOKEN'),
+                    'Authorization' => 'Bearer ' . \env('GITLAB_TOKEN'),
                 ],
             ]
         );
@@ -478,5 +479,4 @@ class parseEmail extends Command
         }
         return $email->headersRaw;
     }
-
 }
