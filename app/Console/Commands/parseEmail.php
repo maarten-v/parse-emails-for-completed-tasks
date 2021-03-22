@@ -6,8 +6,6 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ClientException;
 use Illuminate\Console\Command;
 use PhpImap\Exceptions\ConnectionException;
-use PhpImap\Exceptions\InvalidParameterException;
-use PhpImap\IncomingMail;
 use PhpImap\Mailbox;
 use Psr\Http\Message\ResponseInterface;
 
@@ -16,6 +14,7 @@ class parseEmail extends Command
     private const COMPLETEDASANAEMAILSFOLDER = 'Completed Asana tasks';
     private const MERGEDMRSEMAILSFOLDER = 'Merged MRs';
     private const COMPLETEDHACKERONEREPORTSFOLDER = 'Completed Hackerone reports';
+    private const COMPLETEDJIRAISSUESFOLDER = 'Completed Jira issues';
     private const CLOSEDOPSGENIEALERTSFOLDER = 'Closed Opsgenie alerts';
     private const CLOSEDSENTRYREPORTSFOLDER = 'Closed Sentry reports';
     private const CLOSEDZABBIXPROBLEMSFOLDER = 'Closed Zabbix problems';
@@ -112,6 +111,15 @@ class parseEmail extends Command
             $hackeroneEmails = $this->findEmails('no-reply@hackerone.com');
             foreach ($hackeroneEmails as $mailId) {
                 $this->processHackeroneEmail($mailId);
+            }
+        }
+
+        // Parse Jira emails
+        if (env('JIRA_ENBLED')) {
+            $this->createMailbox($mailboxes, self::COMPLETEDJIRAISSUESFOLDER);
+            $jiraEmails = $this->findEmails(env('JIRA_EMAILADDRESS'));
+            foreach ($jiraEmails as $mailId) {
+                $this->processJiraEmail($mailId);
             }
         }
 
@@ -302,6 +310,34 @@ class parseEmail extends Command
         if (in_array($state, ['informative', 'resolved', 'not-applicable', 'duplicate', 'spam'])) {
             $this->moveEmail($mailId, self::COMPLETEDHACKERONEREPORTSFOLDER);
         }
+    }
+
+    private function processJiraEmail($mailId)
+    {
+        $this->info('');
+        $email = $this->mailbox->getMail($mailId, false);
+        $this->info('Subject: ' . $this->mailbox->decodeMimeStr($email->headers->subject));
+        if (preg_match('/^\[.*\] \((?<code>.*)\)/', $email->headers->subject, $match )) {
+            $issueId = $match['code'];
+            $guzzleResult = $this->client->request(
+                'GET',
+                'https://webparking.atlassian.net/rest/api/3/issue/' . $issueId . '?fields=status',
+                [
+                    'auth' => [
+                        env('JIRA_USERNAME'),
+                        env('JIRA_TOKEN'),
+                    ],
+                    'headers' => [
+                        'Accept' => 'application/json',
+                    ]
+                ]
+            );
+            $response = json_decode($guzzleResult->getBody());
+            if ($response->fields->status->statusCategory->key === 'done') {
+                $this->moveEmail($mailId, self::COMPLETEDJIRAISSUESFOLDER);
+            }
+        }
+
     }
 
     private function findEmails(string $fromAddress): array

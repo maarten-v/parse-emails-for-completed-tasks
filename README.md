@@ -13,6 +13,10 @@ This app reads your emailbox for all Asana emails, Gitlab emails, Hackerone emai
 - Click + New Access Token
 - Add the token to the .env
 ### Create a Gitlab token
+- Navigate to https://id.atlassian.com/manage-profile/security/api-tokens
+- Create a token
+- Add the token to the .env
+### Create a Gitlab token
 - Navigate to https://gitlabdomain/profile/personal_access_tokens
 - Create a token with api access
 - Add the token to the .env
@@ -26,5 +30,4 @@ This app reads your emailbox for all Asana emails, Gitlab emails, Hackerone emai
 - Add the name and the token to the .env
 <br>&nbsp;
 - run `art parse-email`
-
 
