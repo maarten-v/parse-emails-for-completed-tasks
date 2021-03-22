@@ -6,6 +6,7 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ClientException;
 use Illuminate\Console\Command;
 use PhpImap\Exceptions\ConnectionException;
+use PhpImap\IncomingMail;
 use PhpImap\Mailbox;
 use Psr\Http\Message\ResponseInterface;
 
@@ -148,9 +149,9 @@ class parseEmail extends Command
     {
         $this->info('');
         $email = $this->mailbox->getMail($mailId, false);
-        $subject = $this->mailbox->decodeMimeStr($email->headers->subject);
+        $subject = $this->getSubject($email);
         $this->info('Subject: ' . $subject);
-        if (preg_match('/X-Sentry-Reply-To: (?<digit>\d+)/i', $email->headersRaw, $regexResultReportId) === 0) {
+        if (preg_match('/X-Sentry-Reply-To: (?<digit>\d+)/i', $this->getRawHeaders($email), $regexResultReportId) === 0) {
             $this->info('<fg=yellow>No report id found</>');
             return;
         }
@@ -183,7 +184,7 @@ class parseEmail extends Command
     {
         $this->info('');
         $email = $this->mailbox->getMail($mailId, false);
-        $subject = $this->mailbox->decodeMimeStr($email->headers->subject);
+        $subject = $this->getSubject($email);
         $this->info('Subject: ' . $subject);
         if (strpos($subject, 'Closed') === 0 || strpos($subject, 'Acked') === 0) {
             $this->moveEmail($mailId, self::CLOSEDOPSGENIEALERTSFOLDER);
@@ -194,7 +195,7 @@ class parseEmail extends Command
     {
         $this->info('');
         $email = $this->mailbox->getMail($mailId, false);
-        $this->info('Subject: ' . $this->mailbox->decodeMimeStr($email->headers->subject));
+        $this->info('Subject: ' . $this->getSubject($email));
         $mailText = $email->textHtml;
         if (preg_match('/taskId\': \'(?<digit>\d+)/', $mailText, $regexResults) === 0) {
             $this->info('<fg=yellow>No modern task id found</>');
@@ -232,10 +233,11 @@ class parseEmail extends Command
         }
     }
 
-    private function isResolvedZabbixProblem(int $mailId): bool
+    /** @return false|string */
+    private function isResolvedZabbixProblem(int $mailId)
     {
         $email = $this->mailbox->getMail($mailId, false);
-        $subject = $this->mailbox->decodeMimeStr($email->headers->subject);
+        $subject = $this->getSubject($email);
         if ((strpos($subject, 'Resolved:') !== 0)) {
             return false;
         }
@@ -248,10 +250,11 @@ class parseEmail extends Command
         return $regexResult['digit'];
     }
 
+    /** @param string[] $completedIds */
     private function parseZabbixEmail(int $mailId, array $completedIds): bool
     {
         $email = $this->mailbox->getMail($mailId, false);
-        $subject = $this->mailbox->decodeMimeStr($email->headers->subject);
+        $subject = $this->getSubject($email);
         if ((strpos($subject, 'Problem:') !== 0)) {
             return false;
         }
@@ -267,10 +270,11 @@ class parseEmail extends Command
         return true;
     }
 
+    /** @param string[] $completedIds */
     private function parseZabbixResolvedEmail(int $mailId, array $completedIds): void
     {
         $email = $this->mailbox->getMail($mailId, false);
-        $subject = $this->mailbox->decodeMimeStr($email->headers->subject);
+        $subject = $this->getSubject($email);
         if ((strpos($subject, 'Resolved:') !== 0)) {
             return;
         }
@@ -289,8 +293,8 @@ class parseEmail extends Command
     {
         $this->info('');
         $email = $this->mailbox->getMail($mailId, false);
-        $this->info('Subject: ' . $this->mailbox->decodeMimeStr($email->headers->subject));
-        if (preg_match('/#(?<digit>\d+)/', $email->headersRaw, $regexResult) === 0) {
+        $this->info('Subject: ' . $this->getSubject($email));
+        if (preg_match('/#(?<digit>\d+)/', $this->getRawHeaders($email), $regexResult) === 0) {
             $this->info('<fg=yellow>No report id found</>');
             return;
         }
@@ -318,8 +322,9 @@ class parseEmail extends Command
     {
         $this->info('');
         $email = $this->mailbox->getMail($mailId, false);
-        $this->info('Subject: ' . $this->mailbox->decodeMimeStr($email->headers->subject));
-        if (preg_match('/(?<code>\w+-\d+)/', $email->headers->subject, $match )) {
+        $subject = $this->getSubject($email);
+        $this->info('Subject: ' . $subject);
+        if (preg_match('/(?<code>\w+-\d+)/', $subject, $match )) {
             $issueId = $match['code'];
             $guzzleResult = $this->client->request(
                 'GET',
@@ -342,6 +347,7 @@ class parseEmail extends Command
 
     }
 
+    /** @return array<int,int> */
     private function findEmails(string $fromAddress): array
     {
         try {
@@ -365,13 +371,13 @@ class parseEmail extends Command
     {
         $this->info('');
         $email = $this->mailbox->getMail($mailId, false);
-        $this->info('Subject: ' . $this->mailbox->decodeMimeStr($email->headers->subject));
-        if (preg_match('/X-GitLab-Project-Id: (?<digit>\d+)/i', $email->headersRaw, $regexResultProjectId) === 0) {
+        $this->info('Subject: ' . $this->getSubject($email));
+        if (preg_match('/X-GitLab-Project-Id: (?<digit>\d+)/i', $this->getRawHeaders($email), $regexResultProjectId) === 0) {
             $this->info('<fg=yellow>No project id found</>');
             return;
         }
         $projectId = $regexResultProjectId['digit'];
-        if (preg_match('/X-GitLab-Pipeline-Id: (?<digit>\d+)/i', $email->headersRaw, $regexResultPipelineId) !== 0) {
+        if (preg_match('/X-GitLab-Pipeline-Id: (?<digit>\d+)/i', $this->getRawHeaders($email), $regexResultPipelineId) !== 0) {
             $pipelineId = $regexResultPipelineId['digit'];
             $gitlabResult = $this->gitlabRequest('projects/' . $projectId . '/pipelines/' . $pipelineId);
             $gitlabResultJson = json_decode($gitlabResult->getBody());
@@ -391,7 +397,7 @@ class parseEmail extends Command
             dump($gitlabResultJson);
         }
 
-        if (preg_match('/X-GitLab-MergeRequest-IID: (?<digit>\d+)/i', $email->headersRaw, $regexResultMRId) === 0) {
+        if (preg_match('/X-GitLab-MergeRequest-IID: (?<digit>\d+)/i', $this->getRawHeaders($email), $regexResultMRId) === 0) {
             $this->info('<fg=yellow>No merge request id found</>');
             return;
         }
@@ -433,6 +439,7 @@ class parseEmail extends Command
         return $mailboxConnection;
     }
 
+    /** @param string[] $mailboxes */
     private function createMailbox(array $mailboxes, string $newMailbox): void
     {
         if (in_array($this->mailserver . $newMailbox, $mailboxes, true) === false) {
@@ -454,6 +461,22 @@ class parseEmail extends Command
                 ],
             ]
         );
+    }
+
+    private function getSubject(IncomingMail $email): string
+    {
+        if ($email->headers === null) {
+            exit('no headers for email with date '. $email->date);
+        }
+        return $this->mailbox->decodeMimeStr($email->headers->subject);
+    }
+
+    private function getRawHeaders(IncomingMail $email): string
+    {
+        if ($email->headersRaw === null) {
+            exit('no headers for email with date '. $email->date);
+        }
+        return $email->headersRaw;
     }
 
 }
