@@ -12,7 +12,7 @@ This app reads your emailbox for all Asana emails, Gitlab emails, Hackerone emai
 - Click Manage Developer Apps
 - Click + New Access Token
 - Add the token to the .env
-### Create a Gitlab token
+### Create a Jira token
 - Navigate to https://id.atlassian.com/manage-profile/security/api-tokens
 - Create a token
 - Add the token to the .env
