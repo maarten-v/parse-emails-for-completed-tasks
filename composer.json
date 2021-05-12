@@ -16,7 +16,7 @@
         "emielmolenaar/phpcs-laravel": "^2.0",
         "nunomaduro/larastan": "^0.7.1",
         "phpunit/phpunit": "^9.0",
-        "roave/security-advisories": "dev-master"
+        "roave/security-advisories": "dev-latest"
     },
     "autoload": {
         "psr-4": {
