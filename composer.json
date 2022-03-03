@@ -5,12 +5,12 @@
     "license": "MIT",
     "type": "project",
     "require": {
-        "php": "^7.4|^8.0",
+        "php": "^8.0",
         "ext-json": "*",
-        "flipbox/lumen-generator": "^8.2",
+        "yaangvu/lumen-generator": "dev-main",
         "guzzlehttp/guzzle": "^7.0.1",
-        "laravel/lumen-framework": "^8.0",
-        "php-imap/php-imap": "dev-develop"
+        "laravel/lumen-framework": "^9.0",
+        "php-imap/php-imap": "dev-master"
     },
     "require-dev": {
         "emielmolenaar/phpcs-laravel": "^2.0",
