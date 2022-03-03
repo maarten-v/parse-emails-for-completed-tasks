@@ -17,7 +17,7 @@ This app reads your emailbox for all Asana emails, Gitlab emails, Hackerone emai
 - Create a token
 - Add the token to the .env
 ### Create a Gitlab token
-- Navigate to https://gitlabdomain/profile/personal_access_tokens
+- Navigate to https://gitlabdomain/-/profile/personal_access_tokens
 - Create a token with api access
 - Add the token to the .env
 ### Create a HackerOne token

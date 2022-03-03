@@ -174,7 +174,7 @@ class ParseEmail extends Command
             }
             return;
         }
-        $sentryResult = json_decode($sentryResult->getBody(), false, 512, JSON_THROW_ON_ERROR);
+        $sentryResult = json_decode((string) $sentryResult->getBody(), false, 512, JSON_THROW_ON_ERROR);
         $status = $sentryResult->status;
         $this->info("<fg=yellow>Status: $status</>");
         if ($status === 'resolved' || $status === 'ignored') {
@@ -226,7 +226,7 @@ class ParseEmail extends Command
             }
             return;
         }
-        $asanaResultJson = json_decode($asanaResult->getBody(), false, 512, JSON_THROW_ON_ERROR);
+        $asanaResultJson = json_decode((string) $asanaResult->getBody(), false, 512, JSON_THROW_ON_ERROR);
         if ($asanaResultJson->data->completed) {
             $this->info('Completed!');
             $this->moveEmail($mailId, self::COMPLETEDASANAEMAILSFOLDER);
@@ -312,7 +312,7 @@ class ParseEmail extends Command
                 ],
             ]
         );
-        $guzzleResultJson = json_decode($guzzleResult->getBody());
+        $guzzleResultJson = json_decode((string) $guzzleResult->getBody());
         $state = $guzzleResultJson->data->attributes->state;
         $this->info("<fg=yellow>$state</>");
         if (in_array($state, ['informative', 'resolved', 'not-applicable', 'duplicate', 'spam'])) {
@@ -381,7 +381,7 @@ class ParseEmail extends Command
         if (preg_match('/X-GitLab-Pipeline-Id: (?<digit>\d+)/i', $this->getRawHeaders($email), $regexResultPipelineId) !== 0) {
             $pipelineId = $regexResultPipelineId['digit'];
             $gitlabResult = $this->gitlabRequest('projects/' . $projectId . '/pipelines/' . $pipelineId);
-            $gitlabResultJson = json_decode($gitlabResult->getBody());
+            $gitlabResultJson = json_decode((string) $gitlabResult->getBody());
             $branch = $gitlabResultJson->ref;
             try {
                 $gitlabResult = $this->gitlabRequest(
@@ -394,7 +394,7 @@ class ParseEmail extends Command
                 }
                 return;
             }
-            $gitlabResultJson = json_decode($gitlabResult->getBody(), false, 512, JSON_THROW_ON_ERROR);
+            $gitlabResultJson = json_decode((string) $gitlabResult->getBody(), false, 512, JSON_THROW_ON_ERROR);
             \dump($gitlabResultJson);
         }
 
@@ -412,7 +412,7 @@ class ParseEmail extends Command
             }
             return;
         }
-        $gitlabResultJson = json_decode($gitlabResult->getBody());
+        $gitlabResultJson = json_decode((string) $gitlabResult->getBody());
         $state = $gitlabResultJson->state;
         $this->info('<fg=yellow>State: ' . $state . '</>');
         if ($state === 'merged' || $state === 'closed') {

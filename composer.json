@@ -14,7 +14,7 @@
     },
     "require-dev": {
         "emielmolenaar/phpcs-laravel": "^2.0",
-        "nunomaduro/larastan": "^0.7.1",
+        "nunomaduro/larastan": "^2.0.1",
         "phpunit/phpunit": "^9.0",
         "roave/security-advisories": "dev-latest"
     },
