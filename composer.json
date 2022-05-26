@@ -7,7 +7,7 @@
     "require": {
         "php": "^8.0",
         "ext-json": "*",
-        "yaangvu/lumen-generator": "dev-main",
+        "flipbox/lumen-generator": "^9.1",
         "guzzlehttp/guzzle": "^7.0.1",
         "laravel/lumen-framework": "^9.0",
         "php-imap/php-imap": "dev-master"
@@ -33,7 +33,10 @@
     "config": {
         "preferred-install": "dist",
         "sort-packages": true,
-        "optimize-autoloader": true
+        "optimize-autoloader": true,
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
     },
     "minimum-stability": "dev",
     "prefer-stable": true,
