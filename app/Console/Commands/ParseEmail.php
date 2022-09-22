@@ -21,6 +21,7 @@ class ParseEmail extends Command
     private const CLOSEDOPSGENIEALERTSFOLDER = 'Closed Opsgenie alerts';
     private const CLOSEDSENTRYREPORTSFOLDER = 'Closed Sentry reports';
     private const CLOSEDZABBIXPROBLEMSFOLDER = 'Closed Zabbix problems';
+    private const CLOSEDTAIGAMAILSFOLDER = 'Closed Taiga mails';
 
     /**
      * The name and signature of the console command.
@@ -141,6 +142,15 @@ class ParseEmail extends Command
             $asanaEmails = $this->findEmails('asana.com');
             foreach ($asanaEmails as $mailId) {
                 $this->parseAsanaEmail($mailId);
+            }
+        }
+
+        // Parse Taiga emails
+        if (\env('TAIGDA_ENABLED')) {
+            $this->createMailbox($mailboxes, self::CLOSEDTAIGAMAILSFOLDER);
+            $opsgenieEmails = $this->findEmails(\env('TAIGA_EMAILADDRESS'));
+            foreach ($opsgenieEmails as $mailId) {
+                $this->parseTaigaEmail($mailId);
             }
         }
 
@@ -269,6 +279,40 @@ class ParseEmail extends Command
         if (in_array($regexResult['digit'], $completedIds, true)) {
             $this->moveEmail($mailId, self::CLOSEDZABBIXPROBLEMSFOLDER);
         }
+        return true;
+    }
+
+    /** @param string[] $completedIds */
+    private function parseTaigaEmail(int $mailId): bool
+    {
+        $email = $this->mailbox->getMail($mailId, false);
+        $subject = $this->getSubject($email);
+        if (!str_contains($subject, '#')) {
+            return false;
+        }
+        $this->info('');
+        $this->info('Subject: ' . $subject);
+        if (preg_match('/#(?<digit>\d+)/', $email->textPlain, $regexResult) === 0) {
+            $this->info('<fg=yellow>No task id found</>');
+            return false;
+        }
+        echo $regexResult['digit'];
+        $loginResponse = $this->client->post(
+            'https://'. \env('TAIGA_HOSTNAME') . '/api/v1/auth',
+            ['form_params' => [
+                'password' => \env('TAIGA_PASSWORD'),
+                'type' => 'normal',
+                'username' => \env('TAIGA_USERNAME'),
+                ]
+            ]
+        );
+        $json = json_decode($loginResponse->getBody()->getContents());
+        $token = $json->auth_token;
+
+
+//        if (in_array($regexResult['digit'], $completedIds, true)) {
+//            $this->moveEmail($mailId, self::CLOSEDZABBIXPROBLEMSFOLDER);
+//        }
         return true;
     }
 
