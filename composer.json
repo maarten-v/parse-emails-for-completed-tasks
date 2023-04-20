@@ -5,7 +5,7 @@
     "license": "MIT",
     "type": "project",
     "require": {
-        "php": "^8.0",
+        "php": "^8.1",
         "ext-json": "*",
         "flipbox/lumen-generator": "^9.1",
         "guzzlehttp/guzzle": "^7.0.1",
