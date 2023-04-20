@@ -9,7 +9,7 @@
         "ext-json": "*",
         "flipbox/lumen-generator": "^9.1",
         "guzzlehttp/guzzle": "^7.0.1",
-        "laravel/lumen-framework": "^9.0",
+        "laravel/lumen-framework": "^10.0",
         "php-imap/php-imap": "dev-master"
     },
     "require-dev": {
